@@ -1,58 +1,58 @@
 {
-  "expo": {
-    "name": "ServiceConnect",
-    "slug": "service-connect",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ],
-      "package": "com.kamauh.serviceconnect"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you share them with your customers."
+    "expo": {
+        "name": "ServiceConnect",
+        "slug": "service-connect",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/images/icon.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/images/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "assetBundlePatterns": [
+            "**/*"
+        ],
+        "ios": {
+            "supportsTablet": true
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/images/adaptive-icon.png",
+                "backgroundColor": "#ffffff"
+            },
+            "permissions": [
+                "android.permission.CAMERA",
+                "android.permission.ACCESS_COARSE_LOCATION",
+                "android.permission.ACCESS_FINE_LOCATION",
+                "android.permission.RECORD_AUDIO",
+                "android.permission.READ_EXTERNAL_STORAGE",
+                "android.permission.WRITE_EXTERNAL_STORAGE"
+            ],
+            "package": "com.kamauh.serviceconnect"
+        },
+        "web": {
+            "favicon": "./assets/images/favicon.png"
+        },
+        "plugins": [
+            [
+                "expo-image-picker",
+                {
+                    "photosPermission": "The app accesses your photos to let you share them with your customers."
+                }
+            ],
+            [
+                "expo-location",
+                {
+                    "locationAlwaysAndWhenInUsePermission": "Allow ServiceConnect to use your location to show where your services are offered."
+                }
+            ]
+        ],
+        "extra": {
+            "eas": {
+                "projectId": "b7d62445-3499-44b1-b519-459161a9367b"
+            }
         }
-      ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow ServiceConnect to use your location to show where your services are offered."
-        }
-      ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "b7d62445-3499-44b1-b519-459161a9367b"
-      }
     }
-  }
 }
