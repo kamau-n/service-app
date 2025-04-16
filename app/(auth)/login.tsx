@@ -15,18 +15,19 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import { StatusBar } from "expo-status-bar";
-import { Link } from "expo-router";
 import { useAuth } from "@/context/auth-context";
+import { Ionicons, FontAwesome, AntDesign } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, signInWithGoogle, signInWithApple, signInWithFacebook } =
+    useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
-    console.log("this are the credentials provided", email + password);
     if (!email || !password) {
       Toast.show({
         type: "error",
@@ -48,8 +49,23 @@ export default function LoginScreen() {
       });
     } finally {
       setIsLoading(false);
-      // redirect to home page
-      console.log("loged in successfully");
+    }
+  };
+
+  const handleSocialLogin = async (provider: () => Promise<void>) => {
+    try {
+      setIsLoading(true);
+      await provider();
+      router.replace("/Home");
+    } catch (error: any) {
+      console.log(error);
+      Toast.show({
+        type: "error",
+        text1: "Social Login Failed",
+        text2: error.message,
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,16 +76,8 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={{ uri: "https://placeholder.svg?height=100&width=100" }}
-              style={styles.logo}
-            />
-            <Text style={styles.appName}>ServiceConnect</Text>
-          </View>
-
           <View style={styles.formContainer}>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>Welcome Back 👋</Text>
             <Text style={styles.subtitle}>Sign in to your account</Text>
 
             <View style={styles.inputContainer}>
@@ -86,13 +94,23 @@ export default function LoginScreen() {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={styles.showPassword}>
+                <TextInput
+                  style={styles.showInput}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={showPassword}
+                />
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={22}
+                  color="#000"
+                  onPress={() => {
+                    setShowPassword(!showPassword);
+                  }}
+                />
+              </View>
             </View>
 
             <TouchableOpacity
@@ -106,13 +124,18 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            <Text style={styles.orText}>or</Text>
+
+            <TouchableOpacity
+              onPress={() => router.replace("/change-password")}>
+              <Text>Forgot Password</Text>
+            </TouchableOpacity>
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account?</Text>
-              <Link href={"/(auth)/register"}>
-                <TouchableOpacity>
-                  <Text style={styles.footerLink}>Sign Up</Text>
-                </TouchableOpacity>
-              </Link>
+
+              <TouchableOpacity onPress={() => router.replace("/register")}>
+                <Text style={styles.footerLink}>Sign Up</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -122,33 +145,9 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    resizeMode: "contain",
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 10,
-    color: "#4f46e5",
-  },
-  formContainer: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  scrollContainer: { flexGrow: 1, padding: 20 },
+  formContainer: { flex: 1 },
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -160,9 +159,7 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 30,
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
+  inputContainer: { marginBottom: 20 },
   label: {
     fontSize: 16,
     marginBottom: 8,
@@ -188,17 +185,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  orText: {
+    textAlign: "center",
+    color: "#999",
+    marginVertical: 16,
+  },
+  socialContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    marginBottom: 20,
+  },
+  socialButton: {
+    padding: 12,
+    borderRadius: 50,
+    backgroundColor: "#f1f1f1",
+    marginHorizontal: 10,
+  },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 30,
   },
-  footerText: {
-    color: "#666",
-    marginRight: 5,
-  },
+  footerText: { color: "#666", marginRight: 5 },
   footerLink: {
     color: "#4f46e5",
     fontWeight: "600",
+  },
+  showPassword: {
+    flexDirection: "row", // arrange input and icon horizontally
+    alignItems: "center", // vertically center them
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#fff",
+  },
+  showInput: {
+    flex: 1, // take all available space except for icon
+    padding: 15,
+    fontSize: 16,
+    color: "#000",
   },
 });

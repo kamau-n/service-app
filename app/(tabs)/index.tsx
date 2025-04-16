@@ -86,7 +86,14 @@ export default function HomeScreen() {
   const renderServiceItem = ({ item }: { item: Service }) => (
     <TouchableOpacity
       style={styles.serviceCard}
-      onPress={() => router.push(`/service/${item.id}`)}>
+      onPress={() => {
+        router.push({
+          pathname: `/service/${item.id}`,
+          params: {
+            name: item.title,
+          },
+        });
+      }}>
       <Image
         source={{
           uri:
@@ -98,7 +105,7 @@ export default function HomeScreen() {
       />
       <View style={styles.serviceInfo}>
         <Text style={styles.serviceTitle}>{item.title}</Text>
-        <Text style={styles.servicePrice}>${item.price}</Text>
+        <Text style={styles.servicePrice}>{item.price}</Text>
 
         <View style={styles.serviceLocation}>
           <Feather name="map-pin" size={14} color="#666" />
@@ -136,7 +143,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      {/* <StatusBar style="dark" /> */}
       <View style={styles.searchContainer}>
         <Feather
           name="search"

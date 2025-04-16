@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import {
   View,
@@ -13,7 +12,6 @@ import {
   RefreshControl,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useAuth } from "../../context/auth-context";
 import {
   getFirestore,
   collection,
@@ -23,9 +21,10 @@ import {
   deleteDoc,
   doc,
 } from "firebase/firestore";
-import { router } from "expo-router";
+import { router, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import { useAuth } from "@/context/auth-context";
 
 interface Service {
   id: string;
@@ -41,6 +40,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { user, signOut } = useAuth();
   const db = getFirestore();
+  const router = useRouter();
 
   const fetchUserServices = async () => {
     if (!user) return;
@@ -122,6 +122,7 @@ export default function ProfileScreen() {
         onPress: async () => {
           try {
             await signOut();
+            router.replace("/login");
           } catch (error) {
             console.error("Error signing out:", error);
           }

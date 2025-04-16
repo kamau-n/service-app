@@ -11,8 +11,13 @@ import {
   onAuthStateChanged,
   updateProfile,
   type User as FirebaseUser,
+  GoogleAuthProvider,
+  signInWithPopup,
+  FacebookAuthProvider,
+  OAuthProvider,
 } from "firebase/auth";
 import { doc, setDoc, getFirestore } from "firebase/firestore";
+import { getFriendlyError } from "@/utils/formatErrorText";
 
 type User = FirebaseUser | null;
 
@@ -22,6 +27,9 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   error: string | null;
 }
 
@@ -32,6 +40,9 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   signOut: async () => {},
   error: null,
+  signInWithApple: async () => {},
+  signInWithFacebook: async () => {},
+  signInWithGoogle: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -88,6 +99,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const signInWithGoogle = async () => {
+    console.log("Attempting to sign in with google");
+
+    try {
+      setError(null);
+      const provider = new GoogleAuthProvider();
+      console.log("this is my provider", provider);
+
+      const result = await signInWithPopup(auth, provider);
+      console.log("this are the results", result);
+      const user = result.user;
+
+      // Save to Firestore if new
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          createdAt: new Date(),
+          isServiceProvider: false,
+        },
+        { merge: true }
+      );
+    } catch (err: any) {
+      setError(getFriendlyError(err.code));
+      throw err;
+    }
+  };
+
+  const signInWithFacebook = async () => {
+    try {
+      setError(null);
+      const provider = new FacebookAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          createdAt: new Date(),
+          isServiceProvider: false,
+        },
+        { merge: true }
+      );
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const signInWithApple = async () => {
+    try {
+      setError(null);
+      const provider = new OAuthProvider("apple.com");
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          createdAt: new Date(),
+          isServiceProvider: false,
+        },
+        { merge: true }
+      );
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
@@ -99,7 +188,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, register, login, signOut, error }}>
+      value={{
+        user,
+        loading,
+        register,
+        login,
+        signOut,
+        error,
+        signInWithApple,
+        signInWithFacebook,
+        signInWithGoogle,
+      }}>
       {children}
     </AuthContext.Provider>
   );
