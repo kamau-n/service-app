@@ -1,7 +1,3 @@
-// app/(auth)/register.tsx
-
-"use client";
-
 import { useState } from "react";
 import {
   View,
@@ -13,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useAuth } from "../../context/auth-context";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,39 +17,26 @@ import Toast from "react-native-toast-message";
 import { StatusBar } from "expo-status-bar";
 import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "@/constants/Colors";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
   const { register } = useAuth();
   const router = useRouter();
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword || !phone) {
-      return Toast.show({
-        type: "error",
-        text1: "All fields are required",
-      });
+    if (!name || !email || !password) {
+      return Toast.show({ type: "error", text1: "All fields are required" });
     }
 
     if (password.length < 6) {
       return Toast.show({
         type: "error",
         text1: "Password must be at least 6 characters",
-      });
-    }
-
-    if (password !== confirmPassword) {
-      return Toast.show({
-        type: "error",
-        text1: "Passwords do not match",
       });
     }
 
@@ -83,6 +67,13 @@ export default function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <View style={styles.imageContainer}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          </View>
           <View style={styles.formContainer}>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Sign up to get started</Text>
@@ -104,28 +95,10 @@ export default function RegisterScreen() {
                 <Ionicons
                   name={showPassword ? "eye-off" : "eye"}
                   size={20}
+                  color={Colors.text}
                   onPress={() => setShowPassword(!showPassword)}
                 />
               }
-            />
-            <Input
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              rightIcon={
-                <Ionicons
-                  name={showConfirmPassword ? "eye-off" : "eye"}
-                  size={20}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                />
-              }
-            />
-            <Input
-              label="Phone Number"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
             />
 
             <TouchableOpacity
@@ -167,34 +140,57 @@ const Input = ({ label, rightIcon, ...props }: any) => (
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   scrollContainer: { flexGrow: 1, padding: 20 },
+  imageContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  image: {
+    width: 200,
+    height: 150,
+  },
   formContainer: { flex: 1 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 8, color: "#111" },
-  subtitle: { fontSize: 16, color: "#666", marginBottom: 30 },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 8,
+    color: Colors.text,
+  },
+  subtitle: { fontSize: 16, color: Colors.textSecondary, marginBottom: 30 },
   inputContainer: { marginBottom: 20 },
-  label: { fontSize: 16, marginBottom: 8, color: "#333" },
+  label: { fontSize: 16, marginBottom: 8, color: Colors.text },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f9fafb",
+    backgroundColor: Colors.background,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderColor: Colors.border,
+    borderRadius: 12,
     paddingRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
   },
   input: {
     flex: 1,
     padding: 15,
     fontSize: 16,
+    color: Colors.text,
   },
   icon: {
     paddingLeft: 10,
   },
   button: {
-    backgroundColor: "#4f46e5",
-    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
     padding: 16,
     alignItems: "center",
     marginTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   footer: {
@@ -202,6 +198,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 30,
   },
-  footerText: { color: "#666", marginRight: 5 },
-  footerLink: { color: "#4f46e5", fontWeight: "600" },
+  footerText: { color: Colors.textSecondary, marginRight: 5 },
+  footerLink: { color: Colors.primary, fontWeight: "600" },
 });

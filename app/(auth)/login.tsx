@@ -6,11 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
@@ -23,16 +23,15 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login, signInWithGoogle, signInWithApple, signInWithFacebook } =
-    useAuth();
+  const { login } = useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
     if (!email || !password) {
       Toast.show({
         type: "error",
-        text1: "Error",
-        text2: "Please fill in all fields",
+        text1: "Missing Fields",
+        text2: "Please fill in both email and password.",
       });
       return;
     }
@@ -52,39 +51,32 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSocialLogin = async (provider: () => Promise<void>) => {
-    try {
-      setIsLoading(true);
-      await provider();
-      router.replace("/Home");
-    } catch (error: any) {
-      console.log(error);
-      Toast.show({
-        type: "error",
-        text1: "Social Login Failed",
-        text2: error.message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.formContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled">
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.title}>Welcome Back 👋</Text>
-            <Text style={styles.subtitle}>Sign in to your account</Text>
+            <Text style={styles.subtitle}>Please login to continue</Text>
+          </View>
 
-            <View style={styles.inputContainer}>
+          <View style={styles.formContainer}>
+            <View style={styles.inputWrapper}>
               <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder="example@mail.com"
+                placeholderTextColor="#999"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -92,49 +84,61 @@ export default function LoginScreen() {
               />
             </View>
 
-            <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
               <Text style={styles.label}>Password</Text>
-              <View style={styles.showPassword}>
+              <View style={styles.passwordInput}>
                 <TextInput
-                  style={styles.showInput}
-                  placeholder="Enter your password"
+                  style={styles.inputFlex}
+                  placeholder="••••••••"
+                  placeholderTextColor="#999"
+                  secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry={showPassword}
                 />
                 <Ionicons
                   name={showPassword ? "eye-off" : "eye"}
                   size={22}
-                  color="#000"
-                  onPress={() => {
-                    setShowPassword(!showPassword);
-                  }}
+                  color="#666"
+                  onPress={() => setShowPassword(!showPassword)}
                 />
               </View>
             </View>
 
             <TouchableOpacity
-              style={styles.button}
+              style={styles.forgotPassword}
+              onPress={() => router.replace("/change-password")}>
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.loginButton}
               onPress={handleLogin}
               disabled={isLoading}>
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Sign In</Text>
+                <Text style={styles.loginText}>Login</Text>
               )}
             </TouchableOpacity>
 
-            <Text style={styles.orText}>or</Text>
+            <Text style={styles.or}>Or continue with</Text>
 
-            <TouchableOpacity
-              onPress={() => router.replace("/change-password")}>
-              <Text>Forgot Password</Text>
-            </TouchableOpacity>
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account?</Text>
+            <View style={styles.socials}>
+              <TouchableOpacity style={styles.socialIcon}>
+                <AntDesign name="google" size={22} color="#EA4335" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialIcon}>
+                <FontAwesome name="facebook" size={22} color="#3b5998" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialIcon}>
+                <AntDesign name="apple1" size={22} color="#000" />
+              </TouchableOpacity>
+            </View>
 
+            <View style={styles.signup}>
+              <Text style={styles.signupText}>Don't have an account?</Text>
               <TouchableOpacity onPress={() => router.replace("/register")}>
-                <Text style={styles.footerLink}>Sign Up</Text>
+                <Text style={styles.signupLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -146,85 +150,103 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  scrollContainer: { flexGrow: 1, padding: 20 },
-  formContainer: { flex: 1 },
+  scrollContainer: { padding: 20, flexGrow: 1, justifyContent: "center" },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 12,
+  },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "bold",
-    marginBottom: 8,
     color: "#111",
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
-    marginBottom: 30,
+    color: "#777",
+    marginTop: 4,
   },
-  inputContainer: { marginBottom: 20 },
+  formContainer: { width: "100%" },
+  inputWrapper: {
+    marginBottom: 20,
+  },
   label: {
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: 15,
     color: "#333",
+    marginBottom: 6,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 15,
+    backgroundColor: "#f1f5f9",
+    padding: 14,
+    borderRadius: 10,
     fontSize: 16,
-    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  button: {
-    backgroundColor: "#4f46e5",
-    borderRadius: 8,
-    padding: 16,
+  passwordInput: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 10,
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  buttonText: {
+  inputFlex: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 14,
+    color: "#000",
+  },
+  forgotPassword: {
+    alignSelf: "flex-end",
+    marginBottom: 16,
+  },
+  forgotText: {
+    color: "#4f46e5",
+    fontWeight: "500",
+  },
+  loginButton: {
+    backgroundColor: "#4f46e5",
+    padding: 16,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  loginText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
-  orText: {
+  or: {
     textAlign: "center",
     color: "#999",
     marginVertical: 16,
   },
-  socialContainer: {
+  socials: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 20,
-    marginBottom: 20,
+    gap: 16,
+    marginBottom: 30,
   },
-  socialButton: {
+  socialIcon: {
     padding: 12,
-    borderRadius: 50,
+    borderRadius: 10,
     backgroundColor: "#f1f1f1",
-    marginHorizontal: 10,
   },
-  footer: {
+  signup: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 30,
   },
-  footerText: { color: "#666", marginRight: 5 },
-  footerLink: {
+  signupText: {
+    color: "#666",
+    marginRight: 5,
+  },
+  signupLink: {
     color: "#4f46e5",
     fontWeight: "600",
-  },
-  showPassword: {
-    flexDirection: "row", // arrange input and icon horizontally
-    alignItems: "center", // vertically center them
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    backgroundColor: "#fff",
-  },
-  showInput: {
-    flex: 1, // take all available space except for icon
-    padding: 15,
-    fontSize: 16,
-    color: "#000",
   },
 });

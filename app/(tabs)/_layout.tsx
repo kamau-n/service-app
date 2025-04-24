@@ -38,6 +38,17 @@ export default function TabsLayout() {
           headerTitle: "My Profile",
         }}
       />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="settings" size={size} color={color} />
+          ),
+          headerTitle: "My Profile",
+        }}
+      />
     </Tabs>
   );
 }

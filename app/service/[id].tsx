@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import {
   View,
@@ -11,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import {
@@ -20,10 +19,13 @@ import {
   collection,
   addDoc,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import MapView, { Marker } from "react-native-maps";
 import { useLocalSearchParams, router } from "expo-router";
 import { useAuth } from "@/context/auth-context";
+import { Colors } from "@/constants/Colors";
+import Toast from "react-native-toast-message";
 
 const { width } = Dimensions.get("window");
 
@@ -31,6 +33,8 @@ export default function ServiceDetailsScreen() {
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [selectedRating, setSelectedRating] = useState(0);
   const { user } = useAuth();
   const { id } = useLocalSearchParams();
   const serviceId = id as string;
@@ -72,10 +76,7 @@ export default function ServiceDetailsScreen() {
     }
 
     try {
-      // Check if chat already exists
       const chatRef = collection(db, "chats");
-
-      // Create a new chat
       const newChat = await addDoc(chatRef, {
         participants: [user.uid, service.providerId],
         participantNames: {
@@ -89,7 +90,6 @@ export default function ServiceDetailsScreen() {
         createdAt: serverTimestamp(),
       });
 
-      // Navigate to chat screen
       router.push({
         pathname: `/chat/${newChat.id}`,
         params: {
@@ -103,124 +103,174 @@ export default function ServiceDetailsScreen() {
     }
   };
 
+  const handleRateService = async () => {
+    if (!user) {
+      Alert.alert(
+        "Authentication Required",
+        "Please sign in to rate this service"
+      );
+      return;
+    }
+
+    setRatingModalVisible(true);
+  };
+
+  const submitRating = async () => {
+    try {
+      const serviceRef = doc(db, "services", serviceId);
+      const serviceDoc = await getDoc(serviceRef);
+      const currentData = serviceDoc.data();
+
+      const newRating = (currentData?.rating || 0 + selectedRating) / 2;
+
+      await updateDoc(serviceRef, {
+        rating: newRating,
+      });
+
+      setService({ ...service, rating: newRating });
+      setRatingModalVisible(false);
+
+      Toast.show({
+        type: "success",
+        text1: "Rating submitted successfully",
+      });
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      Toast.show({
+        type: "error",
+        text1: "Failed to submit rating",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4f46e5" />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Image Gallery */}
-      <View style={styles.imageContainer}>
-        {service.images && service.images.length > 0 ? (
-          <>
+    <>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.imageContainer}>
+          {service.images && service.images.length > 0 ? (
+            <>
+              <Image
+                source={{ uri: service.images[currentImageIndex] }}
+                style={styles.mainImage}
+              />
+              {service.images.length > 1 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.thumbnailContainer}>
+                  {service.images.map((image: string, index: number) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setCurrentImageIndex(index)}
+                      style={[
+                        styles.thumbnailWrapper,
+                        currentImageIndex === index && styles.activeThumbnail,
+                      ]}>
+                      <Image source={{ uri: image }} style={styles.thumbnail} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </>
+          ) : (
             <Image
-              source={{ uri: service.images[currentImageIndex] }}
+              source={{ uri: "https://source.unsplash.com/random/400x300" }}
               style={styles.mainImage}
             />
-            {service.images.length > 1 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.thumbnailContainer}>
-                {service.images.map((image: string, index: number) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => setCurrentImageIndex(index)}
-                    style={[
-                      styles.thumbnailWrapper,
-                      currentImageIndex === index && styles.activeThumbnail,
-                    ]}>
-                    <Image source={{ uri: image }} style={styles.thumbnail} />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </>
-        ) : (
-          <Image
-            source={{ uri: "https://placeholder.svg?height=300&width=400" }}
-            style={styles.mainImage}
-          />
-        )}
-      </View>
-
-      {/* Service Details */}
-      <View style={styles.detailsContainer}>
-        <Text style={styles.title}>{service.title}</Text>
-        <View style={styles.priceRatingContainer}>
-          <Text style={styles.price}>${service.price}</Text>
-          <View style={styles.ratingContainer}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Feather
-                key={star}
-                name="star"
-                size={16}
-                color={star <= service.rating ? "#FFD700" : "#E0E0E0"}
-              />
-            ))}
-            <Text style={styles.ratingText}>{service.rating.toFixed(1)}</Text>
-          </View>
+          )}
         </View>
 
-        {/* Provider Info */}
-        <View style={styles.providerContainer}>
-          <Image
-            source={{
-              uri:
-                service.providerImage ||
-                "https://placeholder.svg?height=50&width=50",
-            }}
-            style={styles.providerImage}
-          />
-          <View style={styles.providerInfo}>
-            <Text style={styles.providerName}>{service.providerName}</Text>
-            <Text style={styles.providerSubtext}>Service Provider</Text>
-          </View>
-        </View>
+        <View style={styles.detailsContainer}>
+          <Text style={styles.title}>{service.title}</Text>
 
-        {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{service.description}</Text>
-        </View>
-
-        {/* Location */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <View style={styles.locationContainer}>
-            <Feather name="map-pin" size={16} color="#666" />
-            <Text style={styles.locationText}>{service.location.address}</Text>
+          <View style={styles.priceRatingContainer}>
+            <Text style={styles.price}>${service.price}</Text>
+            <TouchableOpacity
+              style={styles.ratingContainer}
+              onPress={handleRateService}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Feather
+                  key={star}
+                  name="star"
+                  size={16}
+                  color={star <= service.rating ? Colors.warning : "#E0E0E0"}
+                />
+              ))}
+              <Text style={styles.ratingText}>{service.rating.toFixed(1)}</Text>
+            </TouchableOpacity>
           </View>
 
-          {service.location.latitude && service.location.longitude && (
-            <View style={styles.mapContainer}>
-              <MapView
-                style={styles.map}
-                initialRegion={{
-                  latitude: service.location.latitude,
-                  longitude: service.location.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}>
-                <Marker
-                  coordinate={{
+          <TouchableOpacity style={styles.providerContainer}>
+            <Image
+              source={{
+                uri:
+                  service.providerImage ||
+                  "https://source.unsplash.com/random/100x100",
+              }}
+              style={styles.providerImage}
+            />
+            <View style={styles.providerInfo}>
+              <Text style={styles.providerName}>{service.providerName}</Text>
+              <Text style={styles.providerSubtext}>Service Provider</Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={Colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.description}>{service.description}</Text>
+          </View>
+
+          {service.location?.address && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Location</Text>
+              <View style={styles.locationContainer}>
+                <Feather
+                  name="map-pin"
+                  size={16}
+                  color={Colors.textSecondary}
+                />
+                <Text style={styles.locationText}>
+                  {service.location.address}
+                </Text>
+              </View>
+
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
                     latitude: service.location.latitude,
                     longitude: service.location.longitude,
-                  }}
-                  title={service.title}
-                />
-              </MapView>
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}>
+                  <Marker
+                    coordinate={{
+                      latitude: service.location.latitude,
+                      longitude: service.location.longitude,
+                    }}
+                    title={service.title}
+                  />
+                </MapView>
+              </View>
             </View>
           )}
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Contact Button */}
-      <View style={styles.contactButtonContainer}>
+      <View style={styles.footer}>
         <TouchableOpacity
           style={styles.contactButton}
           onPress={handleContactProvider}>
@@ -228,14 +278,55 @@ export default function ServiceDetailsScreen() {
           <Text style={styles.contactButtonText}>Contact Provider</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+
+      <Modal
+        visible={ratingModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRatingModalVisible(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Rate this service</Text>
+            <View style={styles.starsContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setSelectedRating(star)}>
+                  <Feather
+                    name="star"
+                    size={32}
+                    color={star <= selectedRating ? Colors.warning : "#E0E0E0"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.ratingValue}>
+              {selectedRating} {selectedRating === 1 ? "star" : "stars"}
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setRatingModalVisible(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={submitRating}
+                disabled={selectedRating === 0}>
+                <Text style={styles.submitButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -243,8 +334,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   imageContainer: {
-    width: "100%",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
   },
   mainImage: {
     width: "100%",
@@ -263,7 +353,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   activeThumbnail: {
-    borderColor: "#4f46e5",
+    borderColor: Colors.primary,
   },
   thumbnail: {
     width: 60,
@@ -272,11 +362,12 @@ const styles = StyleSheet.create({
   },
   detailsContainer: {
     padding: 16,
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#111",
+    color: Colors.text,
     marginBottom: 8,
   },
   priceRatingContainer: {
@@ -286,24 +377,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   price: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
-    color: "#4f46e5",
+    color: Colors.primary,
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: Colors.background,
+    padding: 8,
+    borderRadius: 8,
   },
   ratingText: {
     marginLeft: 4,
     fontSize: 14,
-    color: "#666",
+    color: Colors.textSecondary,
   },
   providerContainer: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
     borderRadius: 12,
     marginBottom: 20,
   },
@@ -319,11 +413,11 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111",
+    color: Colors.text,
   },
   providerSubtext: {
     fontSize: 14,
-    color: "#666",
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   section: {
@@ -332,13 +426,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#111",
+    color: Colors.text,
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: "#333",
+    color: Colors.text,
   },
   locationContainer: {
     flexDirection: "row",
@@ -347,7 +441,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 16,
-    color: "#333",
+    color: Colors.text,
     marginLeft: 8,
   },
   mapContainer: {
@@ -360,13 +454,14 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  contactButtonContainer: {
+  footer: {
     padding: 16,
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: Colors.border,
   },
   contactButton: {
-    backgroundColor: "#4f46e5",
+    backgroundColor: Colors.primary,
     borderRadius: 8,
     padding: 16,
     flexDirection: "row",
@@ -378,5 +473,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 24,
+    color: Colors.text,
+  },
+  starsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  ratingValue: {
+    fontSize: 18,
+    color: Colors.text,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  submitButton: {
+    backgroundColor: Colors.primary,
+  },
+  cancelButtonText: {
+    color: Colors.text,
+    fontWeight: "600",
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontWeight: "600",
   },
 });
