@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ScrollView,
   Switch,
+  Modal,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import {
@@ -39,6 +40,7 @@ interface Service {
   id: string;
   title: string;
   price: number;
+  rateType: string;
   images: string[];
   rating: number;
 }
@@ -59,6 +61,13 @@ interface UserProfile {
   notificationsEnabled?: boolean;
 }
 
+interface Follower {
+  id: string;
+  followerName: string;
+  followerImage?: string;
+  createdAt: any;
+}
+
 export default function ProfileScreen() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,16 +82,18 @@ export default function ProfileScreen() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [followers, setFollowers] = useState<Follower[]>([]);
+  const [followersLoading, setFollowersLoading] = useState(false);
   const { user } = useAuth();
   const params = useLocalSearchParams();
-  const profileId = (params.id as string) || user?.uid;
+  const profileId = params.id ? String(params.id) : user?.uid;
   const isOwnProfile = user?.uid === profileId;
   const db = getFirestore();
 
   useEffect(() => {
     if (!user || !profileId) return;
 
-    // Check if we're following this user
     const followsRef = collection(db, "follows");
     const q = query(
       followsRef,
@@ -94,7 +105,6 @@ export default function ProfileScreen() {
       setIsFollowing(!snapshot.empty);
     });
 
-    // Get user profile data
     const fetchUserProfile = async () => {
       try {
         const userDoc = await getDocs(
@@ -118,7 +128,6 @@ export default function ProfileScreen() {
 
     fetchUserProfile();
 
-    // Track profile views
     if (!isOwnProfile) {
       trackProfileView();
     }
@@ -126,15 +135,51 @@ export default function ProfileScreen() {
     return () => unsubscribe();
   }, [user, profileId]);
 
+  const fetchFollowers = async () => {
+    if (!profileId) return;
+
+    try {
+      setFollowersLoading(true);
+      const followersQuery = query(
+        collection(db, "follows"),
+        where("followingId", "==", profileId)
+      );
+      const snapshot = await getDocs(followersQuery);
+
+      const followersData: Follower[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        followerName: doc.data().followerName,
+        followerImage: doc.data().followerImage,
+        createdAt: doc.data().createdAt,
+      }));
+
+      setFollowers(followersData);
+    } catch (error) {
+      console.error("Error fetching followers:", error);
+    } finally {
+      setFollowersLoading(false);
+    }
+  };
+
+  const viewProfile = (userId: string) => {
+    setShowFollowers(false);
+    if (userId === user?.uid) {
+      router.replace("/(tabs)/profile");
+    } else {
+      router.push({
+        pathname: "/(tabs)/profile",
+        params: { id: userId },
+      });
+    }
+  };
+
   const trackProfileView = async () => {
     try {
-      // Update profile views count
       const userRef = doc(db, "users", profileId);
       await updateDoc(userRef, {
         profileViews: increment(1),
       });
 
-      // Add to profile views collection
       const viewsRef = collection(db, "profileViews");
       await addDoc(viewsRef, {
         viewerId: user?.uid,
@@ -143,7 +188,6 @@ export default function ProfileScreen() {
         timestamp: serverTimestamp(),
       });
 
-      // Send notification to profile owner
       if (userProfile?.notificationsEnabled) {
         await scheduleNotification(
           "New Profile View",
@@ -228,7 +272,6 @@ export default function ProfileScreen() {
           createdAt: serverTimestamp(),
         });
 
-        // Send notification for new follower
         if (userProfile?.notificationsEnabled) {
           await scheduleNotification(
             "New Follower",
@@ -388,7 +431,9 @@ export default function ProfileScreen() {
       />
       <View style={styles.serviceInfo}>
         <Text style={styles.serviceTitle}>{item.title}</Text>
-        <Text style={styles.servicePrice}>${item.price}</Text>
+        <Text style={styles.servicePrice}>
+          ${item.price} per {item.rateType}
+        </Text>
         <View style={styles.serviceRating}>
           {[1, 2, 3, 4, 5].map((star) => (
             <Feather
@@ -408,6 +453,27 @@ export default function ProfileScreen() {
           <Feather name="trash-2" size={18} color={Colors.error} />
         </TouchableOpacity>
       )}
+    </TouchableOpacity>
+  );
+
+  const renderFollower = ({ item }: { item: Follower }) => (
+    <TouchableOpacity
+      style={styles.followerItem}
+      onPress={() => viewProfile(item.id)}>
+      <Image
+        source={{
+          uri:
+            item.followerImage || "https://source.unsplash.com/random/100x100",
+        }}
+        style={styles.followerImage}
+      />
+      <View style={styles.followerInfo}>
+        <Text style={styles.followerName}>{item.followerName}</Text>
+        <Text style={styles.followerDate}>
+          Followed {formatTimestamp(item.createdAt)}
+        </Text>
+      </View>
+      <Feather name="chevron-right" size={20} color={Colors.textSecondary} />
     </TouchableOpacity>
   );
 
@@ -442,129 +508,118 @@ export default function ProfileScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
-        <View style={styles.header}>
-          <View style={styles.coverPhoto}>
+        <View style={styles.profileSection}>
+          <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: "https://source.unsplash.com/random/800x200" }}
-              style={styles.coverImage}
+              source={{
+                uri:
+                  userProfile?.photoURL ||
+                  "https://source.unsplash.com/random/200x200",
+              }}
+              style={styles.profileImage}
             />
             {isOwnProfile && (
-              <TouchableOpacity style={styles.editCoverButton}>
-                <Feather name="camera" size={20} color="#fff" />
+              <TouchableOpacity
+                style={styles.editAvatarButton}
+                onPress={() => router.push("/edit-profile")}>
+                <Feather name="camera" size={16} color="#fff" />
               </TouchableOpacity>
             )}
           </View>
 
-          <View style={styles.profileSection}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{
-                  uri:
-                    userProfile?.photoURL ||
-                    "https://source.unsplash.com/random/200x200",
-                }}
-                style={styles.profileImage}
-              />
-              {isOwnProfile && (
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>
+              {userProfile?.displayName || "User"}
+            </Text>
+            <Text style={styles.profileBio}>Professional service provider</Text>
+            <Text style={styles.profileEmail}>{userProfile?.email}</Text>
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userStats.totalServices}</Text>
+              <Text style={styles.statLabel}>Services</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {userStats.averageRating.toFixed(1)}
+              </Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => {
+                fetchFollowers();
+                setShowFollowers(true);
+              }}>
+              <Text style={styles.statNumber}>{userStats.followers}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </TouchableOpacity>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userStats.following}</Text>
+              <Text style={styles.statLabel}>Following</Text>
+            </View>
+          </View>
+
+          <View style={styles.actionButtons}>
+            {isOwnProfile ? (
+              <>
                 <TouchableOpacity
-                  style={styles.editAvatarButton}
+                  style={[styles.actionButton, styles.primaryButton]}
                   onPress={() => router.push("/edit-profile")}>
-                  <Feather name="camera" size={16} color="#fff" />
+                  <Text style={styles.actionButtonText}>Edit Profile</Text>
                 </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>
-                {userProfile?.displayName || "User"}
-              </Text>
-              <Text style={styles.profileBio}>
-                Professional service provider
-              </Text>
-              <Text style={styles.profileEmail}>{userProfile?.email}</Text>
-            </View>
-
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{userStats.totalServices}</Text>
-                <Text style={styles.statLabel}>Services</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {userStats.averageRating.toFixed(1)}
-                </Text>
-                <Text style={styles.statLabel}>Rating</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{userStats.followers}</Text>
-                <Text style={styles.statLabel}>Followers</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{userStats.following}</Text>
-                <Text style={styles.statLabel}>Following</Text>
-              </View>
-            </View>
-
-            <View style={styles.actionButtons}>
-              {isOwnProfile ? (
-                <>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.primaryButton]}
-                    onPress={() => router.push("/edit-profile")}>
-                    <Text style={styles.actionButtonText}>Edit Profile</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.secondaryButton]}
-                    onPress={() => router.push("/create-service")}>
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        { color: Colors.primary },
-                      ]}>
-                      Add Service
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
                 <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    styles.primaryButton,
-                    isFollowing && styles.followingButton,
-                  ]}
-                  onPress={handleFollowToggle}>
+                  style={[styles.actionButton, styles.secondaryButton]}
+                  onPress={() => router.push("/create-service")}>
                   <Text
                     style={[
                       styles.actionButtonText,
-                      isFollowing && styles.followingButtonText,
+                      { color: Colors.primary },
                     ]}>
-                    {isFollowing ? "Following" : "Follow"}
+                    Add Service
                   </Text>
                 </TouchableOpacity>
-              )}
-            </View>
-
-            {isOwnProfile && (
-              <View style={styles.settingsSection}>
-                <View style={styles.settingItem}>
-                  <Text style={styles.settingLabel}>Private Account</Text>
-                  <Switch
-                    value={isPrivate}
-                    onValueChange={handlePrivacyToggle}
-                    trackColor={{ false: "#767577", true: Colors.primary }}
-                  />
-                </View>
-                <View style={styles.settingItem}>
-                  <Text style={styles.settingLabel}>Notifications</Text>
-                  <Switch
-                    value={userProfile?.notificationsEnabled}
-                    onValueChange={toggleNotifications}
-                    trackColor={{ false: "#767577", true: Colors.primary }}
-                  />
-                </View>
-              </View>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.primaryButton,
+                  isFollowing && styles.followingButton,
+                ]}
+                onPress={handleFollowToggle}>
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    isFollowing && styles.followingButtonText,
+                  ]}>
+                  {isFollowing ? "Following" : "Follow"}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
+
+          {isOwnProfile && (
+            <View style={styles.settingsSection}>
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>Private Account</Text>
+                <Switch
+                  value={isPrivate}
+                  onValueChange={handlePrivacyToggle}
+                  trackColor={{ false: "#767577", true: Colors.primary }}
+                />
+              </View>
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>Notifications</Text>
+                <Switch
+                  value={userProfile?.notificationsEnabled}
+                  onValueChange={toggleNotifications}
+                  trackColor={{ false: "#767577", true: Colors.primary }}
+                />
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.servicesSection}>
@@ -596,6 +651,38 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showFollowers}
+        animationType="slide"
+        onRequestClose={() => setShowFollowers(false)}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Followers</Text>
+            <TouchableOpacity
+              onPress={() => setShowFollowers(false)}
+              style={styles.closeButton}>
+              <Feather name="x" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {followersLoading ? (
+            <ActivityIndicator size="large" color={Colors.primary} />
+          ) : followers.length === 0 ? (
+            <View style={styles.emptyFollowers}>
+              <Feather name="users" size={48} color={Colors.textSecondary} />
+              <Text style={styles.emptyText}>No followers yet</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={followers}
+              renderItem={renderFollower}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.followersList}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -605,29 +692,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    backgroundColor: "#fff",
-    marginBottom: 16,
-  },
-  coverPhoto: {
-    height: 200,
-    position: "relative",
-  },
-  coverImage: {
-    width: "100%",
-    height: "100%",
-  },
-  editCoverButton: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    padding: 8,
-    borderRadius: 20,
-  },
   profileSection: {
+    backgroundColor: "#fff",
     padding: 16,
-    marginTop: -40,
   },
   avatarContainer: {
     position: "relative",
@@ -861,5 +928,67 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: "#fff",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  followersList: {
+    padding: 16,
+  },
+  followerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  followerImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  followerInfo: {
+    flex: 1,
+  },
+  followerName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  followerDate: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  emptyFollowers: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
 });

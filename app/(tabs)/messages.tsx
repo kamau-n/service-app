@@ -32,6 +32,7 @@ interface Chat {
   serviceTitle: string;
   lastMessage: string;
   lastMessageTimestamp: any;
+  lastMessageSender: string;
   unreadCount?: number;
 }
 
@@ -58,14 +59,13 @@ export default function ChatListScreen() {
         snapshot.forEach((doc) => {
           const chatData = doc.data();
           if (chatData.lastMessageSender !== user.uid && !chatData.read) {
-            // Schedule notification for unread message
             scheduleNotification(
               "New Message",
               `New message from ${
                 chatData.participantNames[
                   chatData.participants.find((id: string) => id !== user.uid)
                 ]
-              }`
+              }: ${chatData.lastMessage}`
             );
           }
           chatsList.push({ id: doc.id, ...chatData } as Chat);
@@ -83,14 +83,19 @@ export default function ChatListScreen() {
   }, [user]);
 
   const scheduleNotification = async (title: string, body: string) => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        sound: true,
-      },
-      trigger: null,
-    });
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: true,
+          badge: 1,
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.error("Error scheduling notification:", error);
+    }
   };
 
   const markChatAsRead = async (chatId: string) => {

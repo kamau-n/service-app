@@ -22,6 +22,8 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { Picker } from "@react-native-picker/picker";
+
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { router } from "expo-router";
 import MapView, { Marker } from "react-native-maps";
@@ -32,6 +34,7 @@ export default function CreateServiceScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [rateType, setRateType] = useState("hour");
   const [images, setImages] = useState<string[]>([]);
   const [location, setLocation] = useState({
     address: "",
@@ -151,6 +154,7 @@ export default function CreateServiceScreen() {
         title,
         description,
         price: Number(price),
+        rateType,
         location,
         images: imageUrls,
         rating: 0,
@@ -223,6 +227,22 @@ export default function CreateServiceScreen() {
               placeholder="Enter price"
               keyboardType="decimal-pad"
             />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Rate Type</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={rateType}
+                onValueChange={(itemValue) => setRateType(itemValue)}
+                style={styles.picker}>
+                <Picker.Item label="Per Hour" value="hour" />
+                <Picker.Item label="Per Session" value="session" />
+                <Picker.Item label="Per Day" value="day" />
+                <Picker.Item label="Per Week" value="week" />
+                <Picker.Item label="Per Month" value="month" />
+              </Picker>
+            </View>
           </View>
         </View>
 
@@ -306,7 +326,9 @@ export default function CreateServiceScreen() {
             </MapView>
           )}
         </View>
+      </ScrollView>
 
+      <View style={styles.inputContainer}>
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
@@ -324,7 +346,7 @@ export default function CreateServiceScreen() {
             <Text style={styles.submitButtonText}>Create Service</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -450,9 +472,9 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: Colors.primary,
     borderRadius: 8,
-    padding: 16,
+    padding: 10,
     alignItems: "center",
-    marginVertical: 16,
+    marginVertical: 56,
   },
   submitButtonText: {
     color: "#fff",
@@ -463,5 +485,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+  },
+  picker: {
+    height: 50,
   },
 });

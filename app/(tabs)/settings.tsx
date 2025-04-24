@@ -14,7 +14,7 @@ import { router } from "expo-router";
 import { deleteUser } from "firebase/auth";
 
 export default function SettingsScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const confirmDeleteAccount = () => {
     Alert.alert(
@@ -35,10 +35,19 @@ export default function SettingsScreen() {
     try {
       if (user) {
         await deleteUser(user);
-        // logout(); // Cleanup
+        await signOut();
       }
     } catch (error: any) {
       Alert.alert("Error", error?.message || "Failed to delete account.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace("/(auth)/login");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to log out.");
     }
   };
 
@@ -52,6 +61,13 @@ export default function SettingsScreen() {
           onPress={() => router.push("/edit-profile")}>
           <Feather name="user" size={20} color={Colors.text} />
           <Text style={styles.settingText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => router.push("/(auth)/change-password")}>
+          <Feather name="lock" size={20} color={Colors.text} />
+          <Text style={styles.settingText}>Change Password</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.settingItem}>
@@ -73,7 +89,7 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={() => {}}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Feather name="log-out" size={20} color="#fff" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
