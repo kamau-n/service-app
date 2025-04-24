@@ -103,6 +103,15 @@ export default function ServiceDetailsScreen() {
     }
   };
 
+  const navigateToProviderProfile = () => {
+    if (!service?.providerId) return;
+
+    router.push({
+      pathname: "/(tabs)/profile",
+      params: { id: service.providerId },
+    });
+  };
+
   const handleRateService = async () => {
     if (!user) {
       Alert.alert(
@@ -208,7 +217,9 @@ export default function ServiceDetailsScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.providerContainer}>
+          <TouchableOpacity
+            style={styles.providerContainer}
+            onPress={navigateToProviderProfile}>
             <Image
               source={{
                 uri:
@@ -219,7 +230,7 @@ export default function ServiceDetailsScreen() {
             />
             <View style={styles.providerInfo}>
               <Text style={styles.providerName}>{service.providerName}</Text>
-              <Text style={styles.providerSubtext}>Service Provider</Text>
+              <Text style={styles.providerSubtext}>View Profile</Text>
             </View>
             <Feather
               name="chevron-right"
@@ -417,7 +428,7 @@ const styles = StyleSheet.create({
   },
   providerSubtext: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: Colors.primary,
     marginTop: 2,
   },
   section: {

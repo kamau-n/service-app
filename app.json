@@ -15,7 +15,8 @@
             "**/*"
         ],
         "ios": {
-            "supportsTablet": true
+            "supportsTablet": true,
+            "bundleIdentifier": "com.kamauh.serviceconnect"
         },
         "android": {
             "adaptiveIcon": {
@@ -28,7 +29,9 @@
                 "android.permission.ACCESS_FINE_LOCATION",
                 "android.permission.RECORD_AUDIO",
                 "android.permission.READ_EXTERNAL_STORAGE",
-                "android.permission.WRITE_EXTERNAL_STORAGE"
+                "android.permission.WRITE_EXTERNAL_STORAGE",
+                "android.permission.RECEIVE_BOOT_COMPLETED",
+                "android.permission.VIBRATE"
             ],
             "package": "com.kamauh.serviceconnect"
         },
@@ -46,6 +49,14 @@
                 "expo-location",
                 {
                     "locationAlwaysAndWhenInUsePermission": "Allow ServiceConnect to use your location to show where your services are offered."
+                }
+            ],
+            [
+                "expo-notifications",
+                {
+                    "icon": "./assets/images/icon.png",
+                    "color": "#ffffff",
+                    "sounds": ["./assets/sounds/notification.wav"]
                 }
             ]
         ],

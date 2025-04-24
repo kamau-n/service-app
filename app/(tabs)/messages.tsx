@@ -16,10 +16,13 @@ import {
   where,
   onSnapshot,
   orderBy,
+  updateDoc,
+  doc,
 } from "firebase/firestore";
 import { router } from "expo-router";
 import { formatTimestamp } from "@/utils/format-date";
 import { useAuth } from "@/context/auth-context";
+import * as Notifications from "expo-notifications";
 
 interface Chat {
   id: string;
@@ -29,6 +32,7 @@ interface Chat {
   serviceTitle: string;
   lastMessage: string;
   lastMessageTimestamp: any;
+  unreadCount?: number;
 }
 
 export default function ChatListScreen() {
@@ -49,10 +53,22 @@ export default function ChatListScreen() {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
         const chatsList: Chat[] = [];
         snapshot.forEach((doc) => {
-          chatsList.push({ id: doc.id, ...doc.data() } as Chat);
+          const chatData = doc.data();
+          if (chatData.lastMessageSender !== user.uid && !chatData.read) {
+            // Schedule notification for unread message
+            scheduleNotification(
+              "New Message",
+              `New message from ${
+                chatData.participantNames[
+                  chatData.participants.find((id: string) => id !== user.uid)
+                ]
+              }`
+            );
+          }
+          chatsList.push({ id: doc.id, ...chatData } as Chat);
         });
         setChats(chatsList);
         setLoading(false);
@@ -66,6 +82,29 @@ export default function ChatListScreen() {
     return () => unsubscribe();
   }, [user]);
 
+  const scheduleNotification = async (title: string, body: string) => {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+      },
+      trigger: null,
+    });
+  };
+
+  const markChatAsRead = async (chatId: string) => {
+    try {
+      const chatRef = doc(db, "chats", chatId);
+      await updateDoc(chatRef, {
+        read: true,
+        unreadCount: 0,
+      });
+    } catch (error) {
+      console.error("Error marking chat as read:", error);
+    }
+  };
+
   const getOtherParticipantName = (chat: Chat) => {
     if (!user) return "";
     const otherParticipantId = chat.participants.find((id) => id !== user.uid);
@@ -78,16 +117,17 @@ export default function ChatListScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.chatItem}
-        onPress={() =>
+        style={[styles.chatItem, item.unreadCount && styles.unreadChat]}
+        onPress={() => {
+          markChatAsRead(item.id);
           router.push({
             pathname: `/chat/${item.id}`,
             params: {
               name: otherParticipantName,
               recipientId: recipientId,
             },
-          })
-        }>
+          });
+        }}>
         <Image
           source={{ uri: "https://placeholder.svg?height=50&width=50" }}
           style={styles.avatar}
@@ -103,6 +143,11 @@ export default function ChatListScreen() {
           <Text style={styles.lastMessage} numberOfLines={1}>
             {item.lastMessage}
           </Text>
+          {item.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -163,6 +208,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  unreadChat: {
+    backgroundColor: "#f0f9ff",
+  },
   avatar: {
     width: 50,
     height: 50,
@@ -195,6 +243,23 @@ const styles = StyleSheet.create({
   lastMessage: {
     fontSize: 14,
     color: "#666",
+  },
+  unreadBadge: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    backgroundColor: "#4f46e5",
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  unreadCount: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   emptyContainer: {
     flex: 1,

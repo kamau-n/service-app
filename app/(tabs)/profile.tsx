@@ -25,12 +25,15 @@ import {
   onSnapshot,
   addDoc,
   serverTimestamp,
+  increment,
+  getDoc,
 } from "firebase/firestore";
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import { useAuth } from "@/context/auth-context";
 import { Colors } from "@/constants/Colors";
+import * as Notifications from "expo-notifications";
 
 interface Service {
   id: string;
@@ -45,6 +48,7 @@ interface UserStats {
   averageRating: number;
   followers: number;
   following: number;
+  profileViews: number;
 }
 
 interface UserProfile {
@@ -52,6 +56,7 @@ interface UserProfile {
   email: string;
   photoURL: string | null;
   isPrivate: boolean;
+  notificationsEnabled?: boolean;
 }
 
 export default function ProfileScreen() {
@@ -63,6 +68,7 @@ export default function ProfileScreen() {
     averageRating: 0,
     followers: 0,
     following: 0,
+    profileViews: 0,
   });
   const [isFollowing, setIsFollowing] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -101,6 +107,7 @@ export default function ProfileScreen() {
             email: userData.email,
             photoURL: userData.photoURL,
             isPrivate: userData.isPrivate || false,
+            notificationsEnabled: userData.notificationsEnabled ?? true,
           });
           setIsPrivate(userData.isPrivate || false);
         }
@@ -110,8 +117,54 @@ export default function ProfileScreen() {
     };
 
     fetchUserProfile();
+
+    // Track profile views
+    if (!isOwnProfile) {
+      trackProfileView();
+    }
+
     return () => unsubscribe();
   }, [user, profileId]);
+
+  const trackProfileView = async () => {
+    try {
+      // Update profile views count
+      const userRef = doc(db, "users", profileId);
+      await updateDoc(userRef, {
+        profileViews: increment(1),
+      });
+
+      // Add to profile views collection
+      const viewsRef = collection(db, "profileViews");
+      await addDoc(viewsRef, {
+        viewerId: user?.uid,
+        viewerName: user?.displayName,
+        profileId,
+        timestamp: serverTimestamp(),
+      });
+
+      // Send notification to profile owner
+      if (userProfile?.notificationsEnabled) {
+        await scheduleNotification(
+          "New Profile View",
+          `${user?.displayName} viewed your profile`
+        );
+      }
+    } catch (error) {
+      console.error("Error tracking profile view:", error);
+    }
+  };
+
+  const scheduleNotification = async (title: string, body: string) => {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+      },
+      trigger: null,
+    });
+  };
 
   const fetchUserStats = async () => {
     try {
@@ -129,6 +182,9 @@ export default function ProfileScreen() {
       const followingSnapshot = await getDocs(followingQuery);
       const followingCount = followingSnapshot.size;
 
+      const userDoc = await getDoc(doc(db, "users", profileId));
+      const profileViews = userDoc.data()?.profileViews || 0;
+
       const totalRating = services.reduce(
         (acc, service) => acc + service.rating,
         0
@@ -139,38 +195,10 @@ export default function ProfileScreen() {
         averageRating: services.length > 0 ? totalRating / services.length : 0,
         followers: followersCount,
         following: followingCount,
+        profileViews,
       });
     } catch (error) {
       console.error("Error fetching user stats:", error);
-    }
-  };
-
-  const fetchUserServices = async () => {
-    if (!profileId) return;
-
-    try {
-      setLoading(true);
-      const servicesRef = collection(db, "services");
-      const q = query(servicesRef, where("providerId", "==", profileId));
-      const querySnapshot = await getDocs(q);
-
-      const servicesData: Service[] = [];
-      querySnapshot.forEach((doc) => {
-        servicesData.push({ id: doc.id, ...doc.data() } as Service);
-      });
-
-      setServices(servicesData);
-      await fetchUserStats();
-    } catch (error) {
-      console.error("Error fetching services:", error);
-      Toast.show({
-        type: "error",
-        text1: "Error",
-        text2: "Failed to load services",
-      });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -196,8 +224,18 @@ export default function ProfileScreen() {
         await addDoc(followsRef, {
           followerId: user.uid,
           followingId: profileId,
+          followerName: user.displayName,
           createdAt: serverTimestamp(),
         });
+
+        // Send notification for new follower
+        if (userProfile?.notificationsEnabled) {
+          await scheduleNotification(
+            "New Follower",
+            `${user.displayName} started following you`
+          );
+        }
+
         Toast.show({
           type: "success",
           text1: "Following user",
@@ -218,6 +256,31 @@ export default function ProfileScreen() {
         type: "error",
         text1: "Error",
         text2: "Failed to update follow status",
+      });
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if (!user) return;
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const newValue = !userProfile?.notificationsEnabled;
+      await updateDoc(userRef, {
+        notificationsEnabled: newValue,
+      });
+      setUserProfile((prev) =>
+        prev ? { ...prev, notificationsEnabled: newValue } : null
+      );
+      Toast.show({
+        type: "success",
+        text1: `Notifications ${newValue ? "enabled" : "disabled"}`,
+      });
+    } catch (error) {
+      console.error("Error updating notification settings:", error);
+      Toast.show({
+        type: "error",
+        text1: "Failed to update notification settings",
       });
     }
   };
@@ -251,6 +314,35 @@ export default function ProfileScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchUserServices();
+  };
+
+  const fetchUserServices = async () => {
+    if (!profileId) return;
+
+    try {
+      setLoading(true);
+      const servicesRef = collection(db, "services");
+      const q = query(servicesRef, where("providerId", "==", profileId));
+      const querySnapshot = await getDocs(q);
+
+      const servicesData: Service[] = [];
+      querySnapshot.forEach((doc) => {
+        servicesData.push({ id: doc.id, ...doc.data() } as Service);
+      });
+
+      setServices(servicesData);
+      await fetchUserStats();
+    } catch (error) {
+      console.error("Error fetching services:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to load services",
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   const handleDeleteService = (serviceId: string) => {
@@ -453,13 +545,23 @@ export default function ProfileScreen() {
             </View>
 
             {isOwnProfile && (
-              <View style={styles.privacyContainer}>
-                <Text style={styles.privacyText}>Private Account</Text>
-                <Switch
-                  value={isPrivate}
-                  onValueChange={handlePrivacyToggle}
-                  trackColor={{ false: "#767577", true: Colors.primary }}
-                />
+              <View style={styles.settingsSection}>
+                <View style={styles.settingItem}>
+                  <Text style={styles.settingLabel}>Private Account</Text>
+                  <Switch
+                    value={isPrivate}
+                    onValueChange={handlePrivacyToggle}
+                    trackColor={{ false: "#767577", true: Colors.primary }}
+                  />
+                </View>
+                <View style={styles.settingItem}>
+                  <Text style={styles.settingLabel}>Notifications</Text>
+                  <Switch
+                    value={userProfile?.notificationsEnabled}
+                    onValueChange={toggleNotifications}
+                    trackColor={{ false: "#767577", true: Colors.primary }}
+                  />
+                </View>
               </View>
             )}
           </View>
@@ -707,16 +809,26 @@ const styles = StyleSheet.create({
   followingButtonText: {
     color: Colors.primary,
   },
-  privacyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  settingsSection: {
+    backgroundColor: "#fff",
+    padding: 16,
     marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  privacyText: {
+  settingItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  settingLabel: {
     fontSize: 16,
     color: Colors.text,
   },
