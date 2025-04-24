@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Switch,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import {
@@ -46,6 +47,13 @@ interface UserStats {
   following: number;
 }
 
+interface UserProfile {
+  displayName: string;
+  email: string;
+  photoURL: string | null;
+  isPrivate: boolean;
+}
+
 export default function ProfileScreen() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +65,8 @@ export default function ProfileScreen() {
     following: 0,
   });
   const [isFollowing, setIsFollowing] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isPrivate, setIsPrivate] = useState(false);
   const { user } = useAuth();
   const params = useLocalSearchParams();
   const profileId = (params.id as string) || user?.uid;
@@ -66,6 +76,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user || !profileId) return;
 
+    // Check if we're following this user
     const followsRef = collection(db, "follows");
     const q = query(
       followsRef,
@@ -77,6 +88,28 @@ export default function ProfileScreen() {
       setIsFollowing(!snapshot.empty);
     });
 
+    // Get user profile data
+    const fetchUserProfile = async () => {
+      try {
+        const userDoc = await getDocs(
+          query(collection(db, "users"), where("uid", "==", profileId))
+        );
+        if (!userDoc.empty) {
+          const userData = userDoc.docs[0].data();
+          setUserProfile({
+            displayName: userData.displayName,
+            email: userData.email,
+            photoURL: userData.photoURL,
+            isPrivate: userData.isPrivate || false,
+          });
+          setIsPrivate(userData.isPrivate || false);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      }
+    };
+
+    fetchUserProfile();
     return () => unsubscribe();
   }, [user, profileId]);
 
@@ -189,6 +222,28 @@ export default function ProfileScreen() {
     }
   };
 
+  const handlePrivacyToggle = async () => {
+    if (!user) return;
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        isPrivate: !isPrivate,
+      });
+      setIsPrivate(!isPrivate);
+      Toast.show({
+        type: "success",
+        text1: `Profile is now ${!isPrivate ? "private" : "public"}`,
+      });
+    } catch (error) {
+      console.error("Error updating privacy settings:", error);
+      Toast.show({
+        type: "error",
+        text1: "Failed to update privacy settings",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchUserServices();
   }, [profileId]);
@@ -254,11 +309,13 @@ export default function ProfileScreen() {
           <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
         </View>
       </View>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteService(item.id)}>
-        <Feather name="trash-2" size={18} color={Colors.error} />
-      </TouchableOpacity>
+      {isOwnProfile && (
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteService(item.id)}>
+          <Feather name="trash-2" size={18} color={Colors.error} />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 
@@ -266,6 +323,23 @@ export default function ProfileScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isOwnProfile && userProfile?.isPrivate && !isFollowing) {
+    return (
+      <View style={styles.privateContainer}>
+        <Feather name="lock" size={48} color={Colors.textSecondary} />
+        <Text style={styles.privateText}>This account is private</Text>
+        <Text style={styles.privateSubtext}>
+          Follow this account to see their services
+        </Text>
+        <TouchableOpacity
+          style={styles.followButton}
+          onPress={handleFollowToggle}>
+          <Text style={styles.followButtonText}>Follow</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -282,9 +356,11 @@ export default function ProfileScreen() {
               source={{ uri: "https://source.unsplash.com/random/800x200" }}
               style={styles.coverImage}
             />
-            <TouchableOpacity style={styles.editCoverButton}>
-              <Feather name="camera" size={20} color="#fff" />
-            </TouchableOpacity>
+            {isOwnProfile && (
+              <TouchableOpacity style={styles.editCoverButton}>
+                <Feather name="camera" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.profileSection}>
@@ -292,26 +368,28 @@ export default function ProfileScreen() {
               <Image
                 source={{
                   uri:
-                    user?.photoURL ||
+                    userProfile?.photoURL ||
                     "https://source.unsplash.com/random/200x200",
                 }}
                 style={styles.profileImage}
               />
-              <TouchableOpacity
-                style={styles.editAvatarButton}
-                onPress={() => router.push("/edit-profile")}>
-                <Feather name="camera" size={16} color="#fff" />
-              </TouchableOpacity>
+              {isOwnProfile && (
+                <TouchableOpacity
+                  style={styles.editAvatarButton}
+                  onPress={() => router.push("/edit-profile")}>
+                  <Feather name="camera" size={16} color="#fff" />
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>
-                {user?.displayName || "User"}
+                {userProfile?.displayName || "User"}
               </Text>
               <Text style={styles.profileBio}>
                 Professional service provider
               </Text>
-              <Text style={styles.profileEmail}>{user?.email}</Text>
+              <Text style={styles.profileEmail}>{userProfile?.email}</Text>
             </View>
 
             <View style={styles.statsContainer}>
@@ -373,23 +451,38 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {isOwnProfile && (
+              <View style={styles.privacyContainer}>
+                <Text style={styles.privacyText}>Private Account</Text>
+                <Switch
+                  value={isPrivate}
+                  onValueChange={handlePrivacyToggle}
+                  trackColor={{ false: "#767577", true: Colors.primary }}
+                />
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.servicesSection}>
-          <Text style={styles.sectionTitle}>My Services</Text>
+          <Text style={styles.sectionTitle}>Services</Text>
           {services.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Feather name="package" size={60} color="#ccc" />
               <Text style={styles.emptyText}>No services yet</Text>
               <Text style={styles.emptySubtext}>
-                Start by adding your first service
+                {isOwnProfile
+                  ? "Start by adding your first service"
+                  : "This user hasn't added any services yet"}
               </Text>
-              <TouchableOpacity
-                style={styles.emptyAddButton}
-                onPress={() => router.push("/create-service")}>
-                <Text style={styles.emptyAddButtonText}>Add Service</Text>
-              </TouchableOpacity>
+              {isOwnProfile && (
+                <TouchableOpacity
+                  style={styles.emptyAddButton}
+                  onPress={() => router.push("/create-service")}>
+                  <Text style={styles.emptyAddButtonText}>Add Service</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <FlatList
@@ -613,5 +706,48 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: Colors.primary,
+  },
+  privacyContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  privacyText: {
+    fontSize: 16,
+    color: Colors.text,
+  },
+  privateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  privateText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: Colors.text,
+    marginTop: 16,
+  },
+  privateSubtext: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  followButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 20,
+    marginTop: 24,
+  },
+  followButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

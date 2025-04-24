@@ -23,7 +23,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const { login, signInWithGoogle, signInWithFacebook, signInWithApple } =
+    useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -44,6 +45,54 @@ export default function LoginScreen() {
       Toast.show({
         type: "error",
         text1: "Login Failed",
+        text2: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithGoogle();
+      router.replace("/Home");
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Google Login Failed",
+        text2: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithFacebook();
+      router.replace("/Home");
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Facebook Login Failed",
+        text2: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithApple();
+      router.replace("/Home");
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Apple Login Failed",
         text2: error.message,
       });
     } finally {
@@ -124,15 +173,23 @@ export default function LoginScreen() {
             <Text style={styles.or}>Or continue with</Text>
 
             <View style={styles.socials}>
-              <TouchableOpacity style={styles.socialIcon}>
+              <TouchableOpacity
+                style={styles.socialIcon}
+                onPress={handleGoogleLogin}>
                 <AntDesign name="google" size={22} color="#EA4335" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialIcon}>
+              <TouchableOpacity
+                style={styles.socialIcon}
+                onPress={handleFacebookLogin}>
                 <FontAwesome name="facebook" size={22} color="#3b5998" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialIcon}>
-                <AntDesign name="apple1" size={22} color="#000" />
-              </TouchableOpacity>
+              {Platform.OS === "ios" && (
+                <TouchableOpacity
+                  style={styles.socialIcon}
+                  onPress={handleAppleLogin}>
+                  <AntDesign name="apple1" size={22} color="#000" />
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.signup}>
