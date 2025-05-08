@@ -12,6 +12,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),
@@ -22,6 +23,7 @@ export default function TabsLayout() {
         name="messages"
         options={{
           title: "Messages",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Feather name="message-square" size={size} color={color} />
           ),

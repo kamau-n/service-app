@@ -107,7 +107,7 @@ export default function ServiceDetailsScreen() {
     if (!service?.providerId) return;
 
     router.push({
-      pathname: "/(tabs)/profile",
+      pathname: "/userprofile",
       params: { id: service.providerId },
     });
   };

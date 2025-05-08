@@ -29,6 +29,12 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [businessDescription, setBusinessDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [servicesOffered, setServicesOffered] = useState("");
+  const [workingHours, setWorkingHours] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -67,6 +73,12 @@ export default function EditProfileScreen() {
           setPhoneNumber(userData.phoneNumber || "");
           setEmail(user.email || "");
           setProfileImage(user.photoURL || null);
+          setBusinessName(userData.businessName || "");
+          setBusinessDescription(userData.businessDescription || "");
+          setLocation(userData.location || "");
+          setServicesOffered(userData.servicesOffered || "");
+          setWorkingHours(userData.workingHours || "");
+          setPaymentMethods(userData.paymentMethods || "");
         } else {
           // If user document doesn't exist in Firestore, use auth data
           setDisplayName(user.displayName || "");
@@ -201,6 +213,12 @@ export default function EditProfileScreen() {
         displayName,
         phoneNumber,
         photoURL,
+        businessName,
+        businessDescription,
+        location,
+        servicesOffered,
+        workingHours,
+        paymentMethods,
         updatedAt: new Date(),
       });
 
@@ -290,6 +308,66 @@ export default function EditProfileScreen() {
                 onChangeText={setPhoneNumber}
                 placeholder="Enter your phone number"
                 keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Business Name</Text>
+              <TextInput
+                style={styles.input}
+                value={businessName}
+                onChangeText={setBusinessName}
+                placeholder="Enter your business name"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Business Description</Text>
+              <TextInput
+                style={styles.input}
+                value={businessDescription}
+                onChangeText={setBusinessDescription}
+                placeholder="Describe your business"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Location</Text>
+              <TextInput
+                style={styles.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholder="Enter your business location"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Services Offered</Text>
+              <TextInput
+                style={styles.input}
+                value={servicesOffered}
+                onChangeText={setServicesOffered}
+                placeholder="Enter services offered"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Working Hours</Text>
+              <TextInput
+                style={styles.input}
+                value={workingHours}
+                onChangeText={setWorkingHours}
+                placeholder="Enter your working hours"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Payment Methods</Text>
+              <TextInput
+                style={styles.input}
+                value={paymentMethods}
+                onChangeText={setPaymentMethods}
+                placeholder="Enter accepted payment methods"
               />
             </View>
 

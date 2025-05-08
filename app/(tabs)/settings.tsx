@@ -75,7 +75,9 @@ export default function SettingsScreen() {
           <Text style={styles.settingText}>Notifications</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => router.push("/policy")}>
           <Feather name="shield" size={20} color={Colors.text} />
           <Text style={styles.settingText}>Privacy</Text>
         </TouchableOpacity>

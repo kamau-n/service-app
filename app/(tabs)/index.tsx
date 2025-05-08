@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import {
   View,
@@ -9,6 +11,7 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -37,14 +40,27 @@ interface Service {
   providerId: string;
   providerName: string;
   providerImage?: string;
+  category?: string;
 }
+
+const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
   const db = getFirestore();
+
+  const categories = [
+    "All",
+    "Cleaning",
+    "Repair",
+    "Delivery",
+    "Beauty",
+    "Health",
+  ];
 
   const fetchServices = async () => {
     try {
@@ -76,16 +92,45 @@ export default function HomeScreen() {
     fetchServices();
   };
 
-  const filteredServices = services.filter(
-    (service) =>
+  const filteredServices = services.filter((service) => {
+    const matchesSearch =
       service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       service.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.location.address.toLowerCase().includes(searchQuery.toLowerCase())
+      service.location.address
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+
+    const matchesCategory =
+      activeCategory === "All" || service.category === activeCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const formatPrice = (price: number) => {
+    return `$${price.toFixed(2)}`;
+  };
+
+  const renderCategoryItem = ({ item }: { item: string }) => (
+    <TouchableOpacity
+      style={[
+        styles.categoryPill,
+        activeCategory === item && styles.activeCategoryPill,
+      ]}
+      onPress={() => setActiveCategory(item)}>
+      <Text
+        style={[
+          styles.categoryText,
+          activeCategory === item && styles.activeCategoryText,
+        ]}>
+        {item}
+      </Text>
+    </TouchableOpacity>
   );
 
   const renderServiceItem = ({ item }: { item: Service }) => (
     <TouchableOpacity
       style={styles.serviceCard}
+      activeOpacity={0.9}
       onPress={() => {
         router.push({
           pathname: `/service/${item.id}`,
@@ -94,36 +139,41 @@ export default function HomeScreen() {
           },
         });
       }}>
-      <Image
-        source={{
-          uri:
-            item.images && item.images.length > 0
-              ? item.images[0]
-              : "https://placeholder.svg?height=200&width=400",
-        }}
-        style={styles.serviceImage}
-      />
+      <View style={styles.imageContainer}>
+        <Image
+          source={{
+            uri:
+              item.images && item.images.length > 0
+                ? item.images[0]
+                : "https://placeholder.svg?height=200&width=400",
+          }}
+          style={styles.serviceImage}
+        />
+        <View style={styles.priceTag}>
+          <Text style={styles.priceText}>{formatPrice(item.price)}</Text>
+        </View>
+      </View>
+
       <View style={styles.serviceInfo}>
-        <Text style={styles.serviceTitle}>{item.title}</Text>
-        <Text style={styles.servicePrice}>{item.price}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.serviceTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <View style={styles.serviceRating}>
+            <Feather name="star" size={14} color="#FFD700" />
+            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.serviceDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
 
         <View style={styles.serviceLocation}>
           <Feather name="map-pin" size={14} color="#666" />
           <Text style={styles.locationText} numberOfLines={1}>
             {item.location.address}
           </Text>
-        </View>
-
-        <View style={styles.serviceRating}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Feather
-              key={star}
-              name="star"
-              size={16}
-              color={star <= item.rating ? "#FFD700" : "#E0E0E0"}
-            />
-          ))}
-          <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
         </View>
 
         <View style={styles.providerInfo}>
@@ -142,7 +192,16 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <StatusBar style="dark" />
+
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Find Services</Text>
+        <TouchableOpacity style={styles.notificationButton}>
+          <Feather name="bell" size={22} color="#333" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchContainer}>
         <Feather
           name="search"
@@ -155,6 +214,7 @@ export default function HomeScreen() {
           placeholder="Search services, providers, or locations"
           value={searchQuery}
           onChangeText={setSearchQuery}
+          placeholderTextColor="#999"
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery("")}>
@@ -162,6 +222,15 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <FlatList
+        horizontal
+        data={categories}
+        renderItem={renderCategoryItem}
+        keyExtractor={(item) => item}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesContainer}
+      />
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
@@ -176,6 +245,11 @@ export default function HomeScreen() {
               ? "Try a different search term"
               : "Be the first to add a service!"}
           </Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={fetchServices}>
+            <Text style={styles.refreshButtonText}>Refresh</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -202,17 +276,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8f9fa",
   },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 10,
+    paddingVertical: 12,
+    marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#eee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchIcon: {
     marginRight: 8,
@@ -220,46 +319,93 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    padding: 8,
+    padding: 0,
+    color: "#333",
+  },
+  categoriesContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  categoryPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+    marginRight: 8,
+  },
+  activeCategoryPill: {
+    backgroundColor: "#4f46e5",
+  },
+  categoryText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  activeCategoryText: {
+    color: "#fff",
+    fontWeight: "500",
   },
   listContainer: {
     padding: 16,
+    paddingTop: 8,
   },
   serviceCard: {
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  imageContainer: {
+    position: "relative",
   },
   serviceImage: {
     width: "100%",
     height: 180,
     resizeMode: "cover",
   },
+  priceTag: {
+    position: "absolute",
+    bottom: 12,
+    right: 12,
+    backgroundColor: "rgba(79, 70, 229, 0.9)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  priceText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
   serviceInfo: {
     padding: 16,
+  },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
   serviceTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 8,
     color: "#111",
+    flex: 1,
   },
-  servicePrice: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#4f46e5",
-    marginBottom: 8,
+  serviceDescription: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 12,
+    lineHeight: 20,
   },
   serviceLocation: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   locationText: {
     fontSize: 14,
@@ -270,29 +416,34 @@ const styles = StyleSheet.create({
   serviceRating: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    backgroundColor: "#f9f9f9",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   ratingText: {
     marginLeft: 4,
     fontSize: 14,
-    color: "#666",
+    fontWeight: "500",
+    color: "#333",
   },
   providerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 4,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#eee",
   },
   providerImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     marginRight: 8,
   },
   providerName: {
     fontSize: 14,
+    fontWeight: "500",
     color: "#333",
   },
   loadingContainer: {
@@ -317,5 +468,16 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginTop: 8,
+    marginBottom: 16,
+  },
+  refreshButton: {
+    backgroundColor: "#4f46e5",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  refreshButtonText: {
+    color: "#fff",
+    fontWeight: "500",
   },
 });

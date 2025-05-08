@@ -35,6 +35,7 @@ import Toast from "react-native-toast-message";
 import { useAuth } from "@/context/auth-context";
 import { Colors } from "@/constants/Colors";
 import * as Notifications from "expo-notifications";
+import { formatTimestamp } from "@/utils/format-date";
 
 interface Service {
   id: string;
@@ -555,12 +556,10 @@ export default function ProfileScreen() {
               <Text style={styles.statNumber}>{userStats.followers}</Text>
               <Text style={styles.statLabel}>Followers</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => router.navigate("/followers")}
-              style={styles.statItem}>
+            <View style={styles.statItem}>
               <Text style={styles.statNumber}>{userStats.following}</Text>
               <Text style={styles.statLabel}>Following</Text>
-            </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.actionButtons}>
